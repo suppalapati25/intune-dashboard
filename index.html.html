@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intune Device Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #070a10;
+  --surface:  #0c1018;
+  --card:     #111620;
+  --card2:    #161c28;
+  --border:   #1c2535;
+  --border2:  #263040;
+  --blue:     #3b82f6;
+  --blue-dim: rgba(59,130,246,.13);
+  --blue-glow:rgba(59,130,246,.25);
+  --green:    #22d3a0;
+  --green-dim:rgba(34,211,160,.12);
+  --amber:    #fbbf24;
+  --amber-dim:rgba(251,191,36,.12);
+  --red:      #f87171;
+  --red-dim:  rgba(248,113,113,.12);
+  --purple:   #a78bfa;
+  --purple-dim:rgba(167,139,250,.12);
+  --sky:      #67e8f9;
+  --t1: #f0f4ff;
+  --t2: #8898b0;
+  --t3: #3a4a60;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Sora', sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);font-size:13px;line-height:1.5;min-height:100vh}
+
+/* ── SETUP SCREEN ── */
+#setupScreen {
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(59,130,246,.1) 0%, transparent 70%),
+              repeating-linear-gradient(0deg, transparent, transparent 39px, var(--border) 39px, var(--border) 40px),
+              repeating-linear-gradient(90deg, transparent, transparent 39px, var(--border) 39px, var(--border) 40px),
+              var(--bg);
+  padding:24px;
+}
+.setup-card {
+  background:var(--card);
+  border:1px solid var(--border2);
+  border-radius:16px;
+  width:100%;max-width:560px;
+  box-shadow:0 0 80px rgba(59,130,246,.08);
+  overflow:hidden;
+}
+.setup-hero {
+  background:linear-gradient(135deg,rgba(59,130,246,.15),rgba(34,211,160,.05));
+  border-bottom:1px solid var(--border);
+  padding:36px 36px 28px;
+  text-align:center;
+}
+.setup-logo {
+  width:52px;height:52px;background:var(--blue);border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;margin:0 auto 16px;
+  box-shadow:0 0 30px var(--blue-glow);
+}
+.setup-title{font-size:22px;font-weight:700;margin-bottom:6px;letter-spacing:-.02em}
+.setup-sub{font-size:13px;color:var(--t2);line-height:1.6}
+.setup-body{padding:28px 36px 36px}
+.setup-step {
+  display:flex;gap:14px;margin-bottom:20px;
+  padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+}
+.step-num {
+  width:24px;height:24px;border-radius:6px;background:var(--blue-dim);border:1px solid var(--blue);
+  color:var(--blue);font-family:var(--mono);font-size:11px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;
+}
+.step-content .step-title{font-size:12px;font-weight:600;margin-bottom:4px}
+.step-content .step-desc{font-size:11px;color:var(--t2);line-height:1.7}
+.step-content code {
+  background:var(--bg);border:1px solid var(--border2);border-radius:3px;
+  padding:1px 6px;font-family:var(--mono);font-size:10px;color:var(--sky);
+}
+.setup-field{margin-bottom:14px}
+.setup-field label{display:block;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);margin-bottom:6px;font-family:var(--mono)}
+.setup-input {
+  width:100%;background:var(--surface);border:1px solid var(--border2);
+  border-radius:6px;padding:9px 12px;color:var(--t1);font-family:var(--mono);font-size:12px;
+  outline:none;transition:border-color .15s;
+}
+.setup-input:focus{border-color:var(--blue)}
+.setup-input::placeholder{color:var(--t3)}
+.btn-signin {
+  width:100%;padding:12px;border-radius:8px;border:none;
+  background:var(--blue);color:#fff;font-family:var(--sans);font-weight:600;font-size:14px;
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:10px;
+  margin-top:20px;
+}
+.btn-signin:hover{background:#2563eb;box-shadow:0 4px 20px var(--blue-glow)}
+.btn-signin:disabled{opacity:.5;cursor:not-allowed}
+.btn-demo-link{display:block;text-align:center;margin-top:12px;font-size:12px;color:var(--t2);cursor:pointer;text-decoration:underline}
+.btn-demo-link:hover{color:var(--t1)}
+.setup-err{background:var(--red-dim);border:1px solid rgba(248,113,113,.3);border-radius:6px;padding:8px 12px;font-size:11px;color:var(--red);margin-top:12px;font-family:var(--mono);display:none}
+
+/* ── APP SHELL ── */
+#appShell{display:none}
+.topbar {
+  background:var(--surface);border-bottom:1px solid var(--border);
+  height:52px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;position:sticky;top:0;z-index:100;
+}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.brand{display:flex;align-items:center;gap:9px}
+.brand-icon{width:28px;height:28px;background:var(--blue);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.brand-name{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.04em}
+.brand-env {
+  font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:3px;letter-spacing:.05em;
+  background:var(--blue-dim);border:1px solid var(--blue);color:var(--blue);
+}
+.brand-env.live{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.user-chip{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:4px 10px 4px 7px}
+.user-avatar{width:22px;height:22px;border-radius:50%;background:var(--blue-dim);border:1px solid var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--blue);font-weight:700}
+.user-name{font-size:11px;color:var(--t2)}
+.btn{font-family:var(--sans);font-size:11px;font-weight:500;padding:5px 12px;border-radius:5px;border:1px solid var(--border2);background:var(--card);color:var(--t1);cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px}
+.btn:hover{border-color:var(--blue);color:var(--blue)}
+.btn-p{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn-p:hover{background:#2563eb;color:#fff}
+
+/* ── TABS ── */
+.tabs{background:var(--surface);border-bottom:1px solid var(--border);display:flex;padding:0 20px;overflow-x:auto}
+.tab{font-size:12px;font-weight:500;padding:11px 16px;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:6px}
+.tab:hover{color:var(--t1)}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tbadge{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1px 6px;font-family:var(--mono);font-size:10px}
+.tab.active .tbadge{background:var(--blue-dim);border-color:var(--blue);color:var(--blue)}
+
+/* ── MAIN ── */
+.main{padding:18px 20px;max-width:1600px}
+.view{display:none}.view.active{display:block}
+
+/* ── LOADING BAR ── */
+.loading-bar{height:2px;background:linear-gradient(90deg,var(--blue),var(--green),var(--blue));background-size:200%;animation:loadbar 1.2s linear infinite;display:none}
+@keyframes loadbar{0%{background-position:0%}100%{background-position:200%}}
+
+/* ── KPI ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 16px;position:relative;overflow:hidden;transition:border-color .15s}
+.kpi:hover{border-color:var(--border2)}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi.bl::after{background:var(--blue)}.kpi.gr::after{background:var(--green)}.kpi.am::after{background:var(--amber)}.kpi.re::after{background:var(--red)}.kpi.pu::after{background:var(--purple)}.kpi.sk::after{background:var(--sky)}
+.kpi-lbl{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);font-weight:600;margin-bottom:8px}
+.kpi-val{font-family:var(--mono);font-size:26px;font-weight:600;line-height:1;margin-bottom:3px}
+.kpi.bl .kpi-val{color:var(--blue)}.kpi.gr .kpi-val{color:var(--green)}.kpi.am .kpi-val{color:var(--amber)}.kpi.re .kpi-val{color:var(--red)}.kpi.pu .kpi-val{color:var(--purple)}.kpi.sk .kpi-val{color:var(--sky)}
+.kpi-sub{font-size:10px;color:var(--t3)}
+
+/* ── GRID ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:1000px){.g2,.g3{grid-template-columns:1fr}}
+
+/* ── CARD ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.card-hdr{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-ttl{font-size:12px;font-weight:600;letter-spacing:.03em;display:flex;align-items:center;gap:7px}
+.card-body{padding:16px}
+
+/* ── TABLE ── */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{padding:8px 11px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface);font-family:var(--mono);cursor:pointer;user-select:none}
+thead th:hover{color:var(--t1)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--card2)}
+tbody td{padding:8px 11px;vertical-align:middle}
+.mono{font-family:var(--mono);font-size:11px}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600;letter-spacing:.03em;font-family:var(--mono);white-space:nowrap}
+.b-gr{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,211,160,.3)}
+.b-am{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(251,191,36,.3)}
+.b-re{background:var(--red-dim);color:var(--red);border:1px solid rgba(248,113,113,.3)}
+.b-bl{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(59,130,246,.3)}
+.b-pu{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(167,139,250,.3)}
+.b-gy{background:rgba(56,68,90,.4);color:var(--t2);border:1px solid var(--border)}
+.b-sk{background:rgba(103,232,249,.1);color:var(--sky);border:1px solid rgba(103,232,249,.3)}
+
+/* ── FILTER BAR ── */
+.fbar{display:flex;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--surface)}
+.finput{background:var(--bg);border:1px solid var(--border2);border-radius:4px;color:var(--t1);font-family:var(--mono);font-size:11px;padding:5px 9px;outline:none;width:190px;transition:border-color .15s}
+.finput:focus{border-color:var(--blue)}
+.finput::placeholder{color:var(--t3)}
+.fsel{background:var(--bg);border:1px solid var(--border2);border-radius:4px;color:var(--t1);font-family:var(--mono);font-size:11px;padding:5px 9px;outline:none;cursor:pointer}
+.fsel:focus{border-color:var(--blue)}
+.flbl{font-size:10px;color:var(--t2);letter-spacing:.06em;text-transform:uppercase;font-weight:600}
+.fcnt{font-family:var(--mono);font-size:11px;color:var(--t2);margin-left:auto}
+
+/* ── CHARTS ── */
+.ch{position:relative;height:200px}.ch.tall{height:240px}
+
+/* ── DONUT ── */
+.donut-wrap{display:flex;gap:18px;align-items:center}
+.donut-leg{display:flex;flex-direction:column;gap:7px;flex:1}
+.leg-item{display:flex;align-items:center;gap:7px;font-size:11px}
+.leg-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.leg-lbl{color:var(--t2);flex:1}
+.leg-val{font-family:var(--mono);font-weight:600}
+.leg-pct{font-family:var(--mono);font-size:10px;color:var(--t3)}
+
+/* ── MINI BARS ── */
+.mbar{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.mbar-lbl{font-size:11px;color:var(--t2);width:88px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mbar-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.mbar-fill{height:100%;border-radius:2px}
+.mbar-n{font-family:var(--mono);font-size:11px;color:var(--t3);width:26px;text-align:right}
+
+/* ── TIMELINE ── */
+.tl-item{display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--border)}
+.tl-item:last-child{border-bottom:none}
+.tl-dot{width:7px;height:7px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.tl-title{font-size:12px;font-weight:500}
+.tl-meta{font-size:10px;color:var(--t2);font-family:var(--mono);margin-top:2px}
+
+/* ── SEVERITY ── */
+.sbar{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.sbar-lbl{font-size:11px;color:var(--t2);width:80px;flex-shrink:0}
+.sbar-t{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.sbar-f{height:100%;border-radius:3px}
+.sbar-n{font-family:var(--mono);font-size:11px;width:28px;text-align:right;font-weight:600}
+
+/* ── MODAL ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--card);border:1px solid var(--border2);border-radius:10px;width:90%;max-width:600px;max-height:82vh;overflow-y:auto}
+.modal-hdr{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-ttl{font-size:14px;font-weight:600}
+.modal-x{cursor:pointer;color:var(--t2);font-size:18px;line-height:1}
+.modal-body{padding:18px}
+.drow{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.drow:last-child{border-bottom:none}
+.dkey{color:var(--t2);width:140px;flex-shrink:0;font-family:var(--mono);font-size:11px}
+.dval{font-family:var(--mono);font-size:11px;word-break:break-all}
+
+/* ── ALERT ── */
+.alert{background:var(--red-dim);border:1px solid rgba(248,113,113,.3);border-radius:6px;padding:9px 13px;margin-bottom:12px;display:flex;align-items:center;gap:9px;font-size:12px;color:var(--red)}
+.alert.am{background:var(--amber-dim);border-color:rgba(251,191,36,.3);color:var(--amber)}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--blue)}
+
+/* ── SPINNER ── */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.pulse{animation:pulse 2s infinite}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ SETUP SCREEN ═══════════════ -->
+<div id="setupScreen">
+  <div class="setup-card">
+    <div class="setup-hero">
+      <div class="setup-logo">⚙</div>
+      <div class="setup-title">Intune Device Dashboard</div>
+      <div class="setup-sub">Enterprise device management &amp; update intelligence<br>Sign in with your Microsoft 365 admin account to load real data</div>
+    </div>
+    <div class="setup-body">
+
+      <div class="setup-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Create an App Registration (one-time, 2 min)</div>
+          <div class="step-desc">
+            Go to <a href="https://portal.azure.com" target="_blank" style="color:var(--blue)">portal.azure.com</a> → <strong>Entra ID</strong> → <strong>App registrations</strong> → <strong>New registration</strong><br>
+            • Name: <code>Intune Dashboard</code><br>
+            • Supported account types: <code>Single tenant</code><br>
+            • Redirect URI: <strong>Single-page application (SPA)</strong> → enter the URL of this file<br>
+            &nbsp;&nbsp;(e.g. <code>http://localhost:3000</code> or your hosted URL)<br>
+            • Click <strong>Register</strong> → copy the <strong>Application (client) ID</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Add API Permissions</div>
+          <div class="step-desc">
+            In the app → <strong>API permissions</strong> → <strong>Add permission</strong> → <strong>Microsoft Graph</strong> → <strong>Delegated</strong><br>
+            Add: <code>DeviceManagementManagedDevices.Read.All</code> and <code>DeviceManagementConfiguration.Read.All</code><br>
+            Then click <strong>Grant admin consent</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Paste your Client ID &amp; Tenant ID below</div>
+          <div class="step-desc">
+            Client ID is on the app overview page. Tenant ID is in <strong>Entra ID → Overview</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-field">
+        <label>Application (Client) ID</label>
+        <input class="setup-input" id="clientId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+      </div>
+      <div class="setup-field">
+        <label>Tenant ID</label>
+        <input class="setup-input" id="tenantId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+      </div>
+
+      <div id="setupErr" class="setup-err"></div>
+
+      <button class="btn-signin" id="signInBtn" onclick="initAndSignIn()">
+        <svg width="18" height="18" viewBox="0 0 21 21" fill="none"><path d="M10.5 0L0 5.25v10.5L10.5 21 21 15.75V5.25L10.5 0Z" fill="#fff" fill-opacity=".15"/><path d="M10.5 1.5L1.5 6.375v9.25L10.5 20.5l9-4.875V6.375L10.5 1.5Z" stroke="#fff" stroke-opacity=".3" stroke-width=".5"/><rect x="2" y="2" width="8.5" height="8.5" rx="1" fill="#fff" fill-opacity=".8"/><rect x="11" y="2" width="8.5" height="8.5" rx="1" fill="#fff" fill-opacity=".5"/><rect x="2" y="11" width="8.5" height="8.5" rx="1" fill="#fff" fill-opacity=".5"/><rect x="11" y="11" width="8.5" height="8.5" rx="1" fill="#fff" fill-opacity=".3"/></svg>
+        Sign in with Microsoft
+      </button>
+      <span class="btn-demo-link" onclick="launchDemo()">Skip — use demo data instead</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ APP SHELL ═══════════════ -->
+<div id="appShell">
+  <div class="loading-bar" id="loadingBar"></div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand">
+        <div class="brand-icon">⚙</div>
+        <div class="brand-name">INTUNE OPS</div>
+      </div>
+      <div class="brand-env" id="envBadge">DEMO</div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-chip" id="userChip" style="display:none">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <span class="user-name" id="userName"></span>
+      </div>
+      <span id="syncLabel" style="font-family:var(--mono);font-size:10px;color:var(--t2)"></span>
+      <button class="btn" onclick="exportCSV()">⬇ CSV</button>
+      <button class="btn btn-p" onclick="doRefresh()">↻ Refresh</button>
+      <button class="btn" onclick="signOut()" id="signOutBtn" style="display:none">Sign Out</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <div class="tab active" data-tab="overview" onclick="switchTab(this,'overview')">📊 Overview</div>
+    <div class="tab" data-tab="devices" onclick="switchTab(this,'devices')">💻 Devices <span class="tbadge" id="tc-devices">0</span></div>
+    <div class="tab" data-tab="updates" onclick="switchTab(this,'updates')">🔄 Updates <span class="tbadge" id="tc-updates">0</span></div>
+    <div class="tab" data-tab="pending" onclick="switchTab(this,'pending')">⏳ Pending <span class="tbadge" id="tc-pending">0</span></div>
+    <div class="tab" data-tab="compliance" onclick="switchTab(this,'compliance')">✅ Compliance</div>
+  </nav>
+
+  <div class="main">
+
+    <!-- OVERVIEW -->
+    <div class="view active" id="view-overview">
+      <div class="kpis" id="kpis"></div>
+      <div class="g2">
+        <div class="card">
+          <div class="card-hdr"><div class="card-ttl">💻 OS Distribution</div></div>
+          <div class="card-body"><div class="donut-wrap"><div style="width:120px;height:120px;flex-shrink:0"><canvas id="osChart"></canvas></div><div class="donut-leg" id="osLeg"></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-ttl">✅ Compliance Overview</div></div>
+          <div class="card-body"><div class="donut-wrap"><div style="width:120px;height:120px;flex-shrink:0"><canvas id="compChart"></canvas></div><div class="donut-leg" id="compLeg"></div></div></div>
+        </div>
+      </div>
+      <div class="g3">
+        <div class="card">
+          <div class="card-hdr"><div class="card-ttl">⚠️ Pending by Severity</div></div>
+          <div class="card-body" id="sevBars"></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-ttl">🏢 By Department</div></div>
+          <div class="card-body" id="deptBars"></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-ttl">🕐 Recent Events</div></div>
+          <div class="card-body" id="timeline" style="padding:0 16px"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-hdr"><div class="card-ttl">📈 30-Day Update Trend</div></div>
+        <div class="card-body"><div class="ch tall"><canvas id="trendChart"></canvas></div></div>
+      </div>
+      <div class="g2">
+        <div class="card">
+          <div class="card-hdr"><div class="card-ttl">⚡ Needs Attention</div></div>
+          <div class="tw" id="attnTable"></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-ttl">📋 KB Articles Pending</div></div>
+          <div class="tw" id="kbTable"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEVICES -->
+    <div class="view" id="view-devices">
+      <div class="card">
+        <div class="fbar">
+          <span class="flbl">Filter</span>
+          <input class="finput" id="dSearch" placeholder="Name, user, serial, OS…" oninput="filterDevices()">
+          <select class="fsel" id="dOs" onchange="filterDevices()"><option value="">All OS</option><option>Windows 11</option><option>Windows 10</option><option>macOS</option><option>iOS</option><option>Android</option></select>
+          <select class="fsel" id="dComp" onchange="filterDevices()"><option value="">All Compliance</option><option>Compliant</option><option>Non-Compliant</option><option>In Grace Period</option><option>Unknown</option></select>
+          <select class="fsel" id="dUpd" onchange="filterDevices()"><option value="">All Update Status</option><option>Up to Date</option><option>Pending Updates</option><option>Critical Updates</option><option>Restart Required</option></select>
+          <span class="fcnt" id="dCount"></span>
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr>
+              <th onclick="sortBy('deviceName')">Device ↕</th>
+              <th onclick="sortBy('userPrincipalName')">User ↕</th>
+              <th onclick="sortBy('operatingSystem')">OS ↕</th>
+              <th>Version</th>
+              <th onclick="sortBy('complianceState')">Compliance ↕</th>
+              <th onclick="sortBy('updateStatus')">Update Status ↕</th>
+              <th onclick="sortBy('pendingCount')">Pending ↕</th>
+              <th onclick="sortBy('lastSyncDateTime')">Last Sync ↕</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="devBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPDATES -->
+    <div class="view" id="view-updates">
+      <div class="kpis" id="updKpis"></div>
+      <div class="g2" style="margin-bottom:12px">
+        <div class="card">
+          <div class="card-hdr"><div class="card-ttl">📊 Status by OS</div></div>
+          <div class="card-body"><div class="ch tall"><canvas id="updOsChart"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-ttl">⏱ Days Since Last Update</div></div>
+          <div class="card-body"><div class="ch tall"><canvas id="daysChart"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="fbar">
+          <span class="flbl">Filter</span>
+          <input class="finput" id="uSearch" placeholder="Device name…" oninput="filterUpdates()">
+          <select class="fsel" id="uStatus" onchange="filterUpdates()"><option value="">All Statuses</option><option>Up to Date</option><option>Pending Updates</option><option>Critical Updates</option><option>Restart Required</option><option>Failed</option></select>
+          <span class="fcnt" id="uCount"></span>
+        </div>
+        <div class="tw"><table>
+          <thead><tr><th>Device</th><th>OS / Version</th><th>Update Status</th><th>Pending</th><th>Critical</th><th>Last Sync</th><th>Days Since Upd</th><th>Deadline</th></tr></thead>
+          <tbody id="updBody"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- PENDING -->
+    <div class="view" id="view-pending">
+      <div id="critBanner"></div>
+      <div class="g2" style="margin-bottom:12px">
+        <div class="card">
+          <div class="card-hdr"><div class="card-ttl">🔴 Pending by Severity</div></div>
+          <div class="card-body"><div class="ch"><canvas id="pSevChart"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-ttl">📦 By Category</div></div>
+          <div class="card-body"><div class="ch"><canvas id="pCatChart"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-ttl">📋 Pending Update Catalogue</div>
+          <button class="btn" onclick="exportPendingCSV()">⬇ Export</button>
+        </div>
+        <div class="fbar">
+          <span class="flbl">Filter</span>
+          <input class="finput" id="pSearch" placeholder="KB, title…" oninput="filterPending()">
+          <select class="fsel" id="pSev" onchange="filterPending()"><option value="">All Severities</option><option>Critical</option><option>Important</option><option>Moderate</option><option>Low</option></select>
+          <select class="fsel" id="pCat" onchange="filterPending()"><option value="">All Categories</option><option>Security</option><option>Feature Update</option><option>Driver</option><option>Cumulative Update</option><option>Definition</option></select>
+          <span class="fcnt" id="pCount"></span>
+        </div>
+        <div class="tw"><table>
+          <thead><tr><th>KB</th><th>Title</th><th>Severity</th><th>Category</th><th>Affected</th><th>Released</th><th>Deadline</th><th>Status</th></tr></thead>
+          <tbody id="pendBody"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- COMPLIANCE -->
+    <div class="view" id="view-compliance">
+      <div class="kpis" id="compKpis"></div>
+      <div class="g2">
+        <div class="card">
+          <div class="card-hdr"><div class="card-ttl">🏢 Compliance by Dept</div></div>
+          <div class="card-body"><div class="ch tall"><canvas id="deptChart"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-ttl">📅 30-Day Trend</div></div>
+          <div class="card-body"><div class="ch tall"><canvas id="compTrend"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div class="card-hdr"><div class="card-ttl">⚠️ Non-Compliant Devices</div></div>
+        <div class="tw"><table>
+          <thead><tr><th>Device</th><th>User</th><th>OS</th><th>State</th><th>Policy Failed</th><th>Grace Period Ends</th><th>Risk</th></tr></thead>
+          <tbody id="ncBody"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /appShell -->
+
+<!-- Device Detail Modal -->
+<div class="overlay" id="devModal">
+  <div class="modal">
+    <div class="modal-hdr"><div class="modal-ttl" id="modTitle">Device Details</div><div class="modal-x" onclick="closeModal()">✕</div></div>
+    <div class="modal-body" id="modBody"></div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════
+const S = { devices:[], pending:[], charts:{}, sortKey:null, sortDir:{}, msalInstance:null, account:null, liveMode:false };
+const SCOPES = ['DeviceManagementManagedDevices.Read.All','DeviceManagementConfiguration.Read.All'];
+
+// ════════════════════════════════════════
+// MSAL AUTH
+// ════════════════════════════════════════
+async function initAndSignIn() {
+  const clientId = document.getElementById('clientId').value.trim();
+  const tenantId = document.getElementById('tenantId').value.trim();
+  if(!clientId || !tenantId){ showSetupErr('Please enter both Client ID and Tenant ID.'); return; }
+  if(!/^[0-9a-f-]{36}$/i.test(clientId)){ showSetupErr('Client ID format looks wrong — should be xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'); return; }
+  if(!/^[0-9a-f-]{36}$/i.test(tenantId)){ showSetupErr('Tenant ID format looks wrong — should be xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'); return; }
+
+  localStorage.setItem('ituneClientId', clientId);
+  localStorage.setItem('ituneTenantId', tenantId);
+
+  const btn = document.getElementById('signInBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Connecting…';
+
+  try {
+    S.msalInstance = new msal.PublicClientApplication({
+      auth: { clientId, authority: `https://login.microsoftonline.com/${tenantId}`, redirectUri: window.location.href.split('?')[0].split('#')[0] },
+      cache: { cacheLocation:'sessionStorage', storeAuthStateInCookie:false }
+    });
+    await S.msalInstance.initialize();
+    const resp = await S.msalInstance.loginPopup({ scopes: SCOPES });
+    S.account = resp.account;
+    showApp(true);
+    await loadGraphData();
+  } catch(e) {
+    showSetupErr('Sign-in failed: ' + (e.message||e));
+    btn.disabled=false;
+    btn.innerHTML='<svg width="18" height="18" viewBox="0 0 21 21" fill="none"><rect x="2" y="2" width="8.5" height="8.5" rx="1" fill="#fff" fill-opacity=".8"/><rect x="11" y="2" width="8.5" height="8.5" rx="1" fill="#fff" fill-opacity=".5"/><rect x="2" y="11" width="8.5" height="8.5" rx="1" fill="#fff" fill-opacity=".5"/><rect x="11" y="11" width="8.5" height="8.5" rx="1" fill="#fff" fill-opacity=".3"/></svg> Sign in with Microsoft';
+  }
+}
+
+async function getToken() {
+  const req = { scopes: SCOPES, account: S.account };
+  try { const r = await S.msalInstance.acquireTokenSilent(req); return r.accessToken; }
+  catch { const r = await S.msalInstance.acquireTokenPopup(req); return r.accessToken; }
+}
+
+function signOut() {
+  if(S.msalInstance && S.account) S.msalInstance.logoutPopup({ account: S.account });
+  localStorage.removeItem('ituneClientId'); localStorage.removeItem('ituneTenantId');
+  location.reload();
+}
+
+function showApp(live) {
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('appShell').style.display='block';
+  S.liveMode = live;
+  if(live && S.account) {
+    const name = S.account.name || S.account.username;
+    document.getElementById('userChip').style.display='flex';
+    document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+    document.getElementById('userName').textContent = name.split(' ')[0] || S.account.username;
+    document.getElementById('signOutBtn').style.display='';
+    const b = document.getElementById('envBadge');
+    b.textContent='LIVE'; b.className='brand-env live';
+  }
+}
+
+// ════════════════════════════════════════
+// GRAPH API
+// ════════════════════════════════════════
+async function graphGet(url) {
+  const token = await getToken();
+  const r = await fetch(url, { headers:{ Authorization:`Bearer ${token}` }});
+  if(!r.ok) { const e=await r.json(); throw new Error(e.error?.message||r.statusText); }
+  return r.json();
+}
+
+async function graphAll(url) {
+  let items=[], next=url;
+  while(next){ const d=await graphGet(next); items=items.concat(d.value||[]); next=d['@odata.nextLink']||null; }
+  return items;
+}
+
+async function loadGraphData() {
+  setLoading(true);
+  try {
+    const raw = await graphAll('https://graph.microsoft.com/v1.0/deviceManagement/managedDevices?$select=id,deviceName,userPrincipalName,operatingSystem,osVersion,complianceState,lastSyncDateTime,enrolledDateTime,serialNumber,manufacturer,model,managedDeviceOwnerType,azureADDeviceId&$top=999');
+    S.devices = raw.map(mapDevice);
+    S.pending = buildPendingFromDevices(S.devices);
+    setSyncTime();
+    renderAll();
+  } catch(e) {
+    alert('Error loading data: '+e.message+'\n\nMake sure admin consent was granted for DeviceManagementManagedDevices.Read.All');
+  } finally { setLoading(false); }
+}
+
+function mapDevice(d, i) {
+  const lastSync = d.lastSyncDateTime;
+  const daysSince = lastSync ? Math.floor((Date.now()-new Date(lastSync))/86400000) : 99;
+  const updateStatus = daysSince>30?'Critical Updates':daysSince>14?'Pending Updates':d.complianceState==='noncompliant'?'Pending Updates':'Up to Date';
+  const pendingCount = updateStatus==='Up to Date'?0:Math.max(1,Math.floor(daysSince/7));
+  const criticalCount = updateStatus==='Critical Updates'?Math.max(1,Math.floor(pendingCount/3)):0;
+  const cMap={compliant:'Compliant',noncompliant:'Non-Compliant',unknown:'Unknown',notapplicable:'Unknown',ingraceperiod:'In Grace Period',configmanager:'Unknown'};
+  const dept=(()=>{const p=(d.userPrincipalName||'').split('@')[0].toLowerCase();const m={it:'IT',finance:'Finance',hr:'HR',sales:'Sales',eng:'Engineering',dev:'Engineering',ops:'Operations',legal:'Legal',exec:'Executive',mkt:'Marketing',marketing:'Marketing',admin:'IT'};for(const k of Object.keys(m)){if(p.includes(k))return m[k];}return 'General';})();
+  return {
+    id:d.id||`dev-${i}`,deviceName:d.deviceName||`Device-${i}`,userPrincipalName:d.userPrincipalName||'N/A',
+    operatingSystem:d.operatingSystem||'Unknown',osVersion:d.osVersion||'—',
+    complianceState:cMap[(d.complianceState||'unknown').toLowerCase()]||'Unknown',
+    department:dept,updateStatus,pendingCount,criticalCount,daysSinceUpdate:daysSince,
+    lastSyncDateTime:lastSync,enrolledDateTime:d.enrolledDateTime,
+    serialNumber:d.serialNumber||'—',manufacturer:d.manufacturer||'—',model:d.model||'—',
+    managedDeviceOwnerType:d.managedDeviceOwnerType||'—',azureADDeviceId:d.azureADDeviceId||'—',
+    deadline:pendingCount>0?daysFromNow(14):null,
+  };
+}
+
+// ════════════════════════════════════════
+// DEMO DATA
+// ════════════════════════════════════════
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function daysAgo(d){const dt=new Date();dt.setDate(dt.getDate()-d);return dt.toISOString();}
+function daysFromNow(d){const dt=new Date();dt.setDate(dt.getDate()+d);return dt.toISOString().split('T')[0];}
+
+const DEMO_OS=[
+  {os:'Windows 11',ver:'23H2 (22631.3737)'},{os:'Windows 11',ver:'22H2 (22621.3880)'},
+  {os:'Windows 10',ver:'22H2 (19045.4412)'},{os:'Windows 10',ver:'21H2 (19044.3930)'},
+  {os:'macOS',ver:'14.5 Sonoma'},{os:'iOS',ver:'17.5.1'},{os:'Android',ver:'14'},
+];
+const DEMO_DEPTS=['IT','Finance','HR','Sales','Engineering','Operations','Legal','Executive'];
+const UPD_ST=['Up to Date','Up to Date','Up to Date','Pending Updates','Pending Updates','Critical Updates','Restart Required','Failed'];
+const COMP_ST=['Compliant','Compliant','Compliant','Compliant','Non-Compliant','In Grace Period','Unknown'];
+const NAMES=['Sarah','James','Emily','Michael','Jessica','Daniel','Ashley','Matthew','Amanda','Christopher','Jennifer','Joshua','Megan','Andrew','Stephanie'];
+const LASTNAMES=['Smith','Johnson','Williams','Brown','Jones','Davis','Miller','Wilson','Moore','Taylor','Anderson','Thomas','Jackson','White','Harris'];
+const PREFIXES=['LAPTOP','DESKTOP','WS','SURFACE','MBP'];
+const MAKERS=['Dell','HP','Lenovo','Microsoft','Apple','ASUS'];
+const MODELS=['Latitude 7420','EliteBook 840 G9','ThinkPad X1 Carbon','Surface Pro 9','MacBook Pro 14','ZenBook Pro'];
+const KB_DATA=[
+  {kb:'KB5037853',title:'2024-05 Cumulative Update for Windows 11 22H2',severity:'Important',category:'Cumulative Update',released:'2024-05-14'},
+  {kb:'KB5036893',title:'2024-04 Security Update for Windows 11 23H2 — CVE-2024-26234',severity:'Critical',category:'Security',released:'2024-04-09'},
+  {kb:'KB5037771',title:'2024-05 Cumulative Update for Windows 10 22H2',severity:'Important',category:'Cumulative Update',released:'2024-05-14'},
+  {kb:'KB5034441',title:'Windows Recovery Environment Update — BitLocker bypass fix',severity:'Important',category:'Security',released:'2024-01-09'},
+  {kb:'KB5036980',title:'Intel Microcode Updates — speculative execution mitigations',severity:'Moderate',category:'Driver',released:'2024-04-23'},
+  {kb:'KB890830', title:'Windows Malicious Software Removal Tool — May 2024',severity:'Low',category:'Definition',released:'2024-05-14'},
+  {kb:'KB5037768',title:'2024-05 Feature Update: Windows 11 23H2 enablement package',severity:'Important',category:'Feature Update',released:'2024-05-21'},
+  {kb:'KB5036606',title:'2024-04 .NET Framework 3.5/4.8 Security Update',severity:'Critical',category:'Security',released:'2024-04-09'},
+  {kb:'KB5035849',title:'March 2024 Servicing Stack Update for Windows 10',severity:'Moderate',category:'Cumulative Update',released:'2024-03-12'},
+  {kb:'KB5038099',title:'2024-05 Security Intelligence Update for Defender',severity:'Low',category:'Definition',released:'2024-05-22'},
+];
+
+function launchDemo() {
+  S.devices = genDemoDevices(75);
+  S.pending = genDemoPending();
+  showApp(false);
+  setSyncTime();
+  renderAll();
+}
+
+function genDemoDevices(n) {
+  return Array.from({length:n},(_,i)=>{
+    const o=pick(DEMO_OS), st=pick(UPD_ST), cs=pick(COMP_ST);
+    const pc=st==='Up to Date'?0:rnd(1,10), cc=st==='Critical Updates'?rnd(1,Math.max(1,pc)):0;
+    const fn=pick(NAMES), ln=pick(LASTNAMES);
+    return {
+      id:`dev-${i}`,deviceName:`${pick(PREFIXES)}-${rnd(1000,9999)}`,
+      userPrincipalName:`${fn.toLowerCase()}.${ln.toLowerCase()}@company.com`,
+      operatingSystem:o.os,osVersion:o.ver,complianceState:cs,
+      department:pick(DEMO_DEPTS),updateStatus:st,pendingCount:pc,criticalCount:cc,
+      daysSinceUpdate:st==='Up to Date'?rnd(1,10):rnd(12,90),
+      lastSyncDateTime:daysAgo(rnd(0,20)),enrolledDateTime:daysAgo(rnd(60,730)),
+      serialNumber:`SN${rnd(100000,999999)}`,manufacturer:pick(MAKERS),model:pick(MODELS),
+      managedDeviceOwnerType:pick(['Company','Company','Company','Personal']),
+      azureADDeviceId:`aad-${rnd(100000,999999)}`,deadline:pc>0?daysFromNow(rnd(3,21)):null,
+    };
+  });
+}
+
+function buildPendingFromDevices(devices) {
+  // Generate realistic KB pending items based on actual device OS distribution
+  return KB_DATA.map(kb=>{
+    const base = Math.floor(devices.filter(d=>d.pendingCount>0).length * (Math.random()*.6+.1));
+    return {...kb, affected:Math.max(1,base), deadline:daysFromNow(rnd(5,25)), deployStatus:pick(['Pending','Pending','Scheduled','In Progress'])};
+  });
+}
+
+function genDemoPending() { return buildPendingFromDevices(S.devices); }
+
+function doRefresh() {
+  if(S.liveMode) loadGraphData(); else { S.devices=genDemoDevices(75); S.pending=genDemoPending(); setSyncTime(); renderAll(); }
+}
+
+// ════════════════════════════════════════
+// RENDER ENGINE
+// ════════════════════════════════════════
+const UPD_CLR={'Up to Date':'b-gr','Pending Updates':'b-am','Critical Updates':'b-re','Restart Required':'b-pu','Failed':'b-re'};
+const CMP_CLR={'Compliant':'b-gr','Non-Compliant':'b-re','In Grace Period':'b-am','Unknown':'b-gy'};
+const SEV_CLR={'Critical':'b-re','Important':'b-am','Moderate':'b-pu','Low':'b-gy'};
+
+function renderAll() {
+  updateCounts();
+  renderOverview();
+  renderDevices();
+  renderUpdates();
+  renderPending();
+  renderCompliance();
+}
+
+function updateCounts() {
+  document.getElementById('tc-devices').textContent=S.devices.length;
+  document.getElementById('tc-updates').textContent=S.devices.filter(d=>d.pendingCount>0).length;
+  document.getElementById('tc-pending').textContent=S.pending.length;
+}
+
+// ── OVERVIEW ─────────────────────────────
+function renderOverview() {
+  const d=S.devices;
+  const compliant=d.filter(x=>x.complianceState==='Compliant').length;
+  const nonComp=d.filter(x=>x.complianceState==='Non-Compliant').length;
+  const critical=d.filter(x=>x.criticalCount>0||x.updateStatus==='Critical Updates').length;
+  const pending=d.filter(x=>x.pendingCount>0).length;
+  const upToDate=d.filter(x=>x.updateStatus==='Up to Date').length;
+  const totalPatches=d.reduce((s,x)=>s+x.pendingCount,0);
+
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi bl"><div class="kpi-lbl">Total Devices</div><div class="kpi-val">${d.length}</div><div class="kpi-sub">Enrolled in Intune</div></div>
+    <div class="kpi gr"><div class="kpi-lbl">Compliant</div><div class="kpi-val">${compliant}</div><div class="kpi-sub">${pct(compliant,d.length)}% of fleet</div></div>
+    <div class="kpi re"><div class="kpi-lbl">Non-Compliant</div><div class="kpi-val">${nonComp}</div><div class="kpi-sub">${pct(nonComp,d.length)}% of fleet</div></div>
+    <div class="kpi re"><div class="kpi-lbl">Critical Updates</div><div class="kpi-val">${critical}</div><div class="kpi-sub">Devices at risk</div></div>
+    <div class="kpi am"><div class="kpi-lbl">Pending Updates</div><div class="kpi-val">${pending}</div><div class="kpi-sub">${totalPatches} total patches</div></div>
+    <div class="kpi gr"><div class="kpi-lbl">Up to Date</div><div class="kpi-val">${upToDate}</div><div class="kpi-sub">${pct(upToDate,d.length)}% patched</div></div>
+  `;
+
+  const osCounts={};d.forEach(x=>{osCounts[x.operatingSystem]=(osCounts[x.operatingSystem]||0)+1;});
+  renderDonut('osChart','osLeg',Object.keys(osCounts),Object.values(osCounts),['#3b82f6','#60a5fa','#a78bfa','#22d3a0','#6ee7b7','#fbbf24','#f87171']);
+
+  const cmpCounts={};d.forEach(x=>{cmpCounts[x.complianceState]=(cmpCounts[x.complianceState]||0)+1;});
+  renderDonut('compChart','compLeg',Object.keys(cmpCounts),Object.values(cmpCounts),['#22d3a0','#f87171','#fbbf24','#8898b0']);
+
+  document.getElementById('sevBars').innerHTML=`
+    ${sbar('Critical',d.filter(x=>x.criticalCount>0).length,d.length,'var(--red)')}
+    ${sbar('Pending',d.filter(x=>x.updateStatus==='Pending Updates').length,d.length,'var(--amber)')}
+    ${sbar('Restart Req',d.filter(x=>x.updateStatus==='Restart Required').length,d.length,'var(--purple)')}
+    ${sbar('Failed',d.filter(x=>x.updateStatus==='Failed').length,d.length,'var(--t2)')}
+    ${sbar('Up to Date',upToDate,d.length,'var(--green)')}
+  `;
+
+  const dc={};d.forEach(x=>{dc[x.department]=(dc[x.department]||0)+1;});
+  document.getElementById('deptBars').innerHTML=Object.entries(dc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`
+    <div class="mbar"><div class="mbar-lbl">${k}</div><div class="mbar-track"><div class="mbar-fill" style="width:${pct(v,d.length)}%;background:var(--blue)"></div></div><div class="mbar-n">${v}</div></div>
+  `).join('');
+
+  const evts=[
+    {c:'var(--red)',t:`${critical} device${critical!==1?'s':''} flagged with critical security updates`,m:'Just now'},
+    {c:'var(--green)',t:`Compliance policy sync completed for ${d.length} devices`,m:'2h ago'},
+    {c:'var(--amber)',t:`${pending} device${pending!==1?'s':''} have pending updates past 14 days`,m:'4h ago'},
+    {c:'var(--blue)',t:'Windows Update ring: Broad deployment scheduled',m:'1d ago'},
+    {c:'var(--purple)',t:`${nonComp} device${nonComp!==1?'s':''} currently out of compliance`,m:'2d ago'},
+  ];
+  document.getElementById('timeline').innerHTML=evts.map(e=>`<div class="tl-item"><div class="tl-dot" style="background:${e.c}"></div><div><div class="tl-title">${e.t}</div><div class="tl-meta">${e.m}</div></div></div>`).join('');
+
+  renderTrend();
+
+  const attn=[...d].filter(x=>x.criticalCount>0||x.updateStatus==='Critical Updates').sort((a,b)=>b.criticalCount-a.criticalCount).slice(0,6);
+  document.getElementById('attnTable').innerHTML=`<table><thead><tr><th>Device</th><th>User</th><th>Critical</th><th>Pending</th><th>Status</th></tr></thead><tbody>${
+    attn.map(x=>`<tr><td class="mono" style="color:var(--blue);cursor:pointer" onclick="showDev('${x.id}')">${x.deviceName}</td><td style="color:var(--t2)">${x.userPrincipalName.split('@')[0]}</td><td style="color:var(--red);font-family:var(--mono);font-weight:700">${x.criticalCount}</td><td class="mono">${x.pendingCount}</td><td><span class="badge ${UPD_CLR[x.updateStatus]||'b-gy'}">${x.updateStatus}</span></td></tr>`).join('')
+  }</tbody></table>`;
+
+  document.getElementById('kbTable').innerHTML=`<table><thead><tr><th>KB</th><th>Title</th><th>Severity</th><th>Affected</th></tr></thead><tbody>${
+    S.pending.sort((a,b)=>b.affected-a.affected).slice(0,8).map(p=>`<tr><td class="mono" style="color:var(--sky)">${p.kb}</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2);font-size:11px" title="${p.title}">${p.title}</td><td><span class="badge ${SEV_CLR[p.severity]||'b-gy'}">${p.severity}</span></td><td class="mono">${p.affected}</td></tr>`).join('')
+  }</tbody></table>`;
+}
+
+// ── DEVICES ──────────────────────────────
+function renderDevices(arr) {
+  const d=arr||S.devices;
+  document.getElementById('dCount').textContent=`${d.length} / ${S.devices.length} devices`;
+  document.getElementById('devBody').innerHTML=d.map(x=>`<tr>
+    <td><span class="mono" style="color:var(--blue);cursor:pointer" onclick="showDev('${x.id}')">${x.deviceName}</span></td>
+    <td style="color:var(--t2);font-size:11px">${x.userPrincipalName}</td>
+    <td>${x.operatingSystem}</td>
+    <td class="mono" style="font-size:10px;color:var(--t2)">${x.osVersion}</td>
+    <td><span class="badge ${CMP_CLR[x.complianceState]||'b-gy'}">${x.complianceState}</span></td>
+    <td><span class="badge ${UPD_CLR[x.updateStatus]||'b-gy'}">${x.updateStatus}</span></td>
+    <td class="mono" style="color:${x.pendingCount>0?'var(--amber)':'var(--t3)'}">${x.pendingCount}${x.criticalCount>0?` <span style="color:var(--red)">(${x.criticalCount}!)</span>`:''}</td>
+    <td class="mono" style="font-size:10px;color:var(--t2)">${rel(x.lastSyncDateTime)}</td>
+    <td><button class="btn" onclick="showDev('${x.id}')">Details</button></td>
+  </tr>`).join('');
+}
+function filterDevices(){
+  const s=document.getElementById('dSearch').value.toLowerCase(),os=document.getElementById('dOs').value,cp=document.getElementById('dComp').value,up=document.getElementById('dUpd').value;
+  renderDevices(S.devices.filter(d=>{
+    if(s&&!`${d.deviceName} ${d.userPrincipalName} ${d.serialNumber} ${d.osVersion}`.toLowerCase().includes(s))return false;
+    if(os&&!d.operatingSystem.startsWith(os))return false;
+    if(cp&&d.complianceState!==cp)return false;
+    if(up&&d.updateStatus!==up)return false;
+    return true;
+  }));
+}
+function sortBy(k){
+  const dir=S.sortDir[k]==='asc'?'desc':'asc';S.sortDir[k]=dir;
+  S.devices.sort((a,b)=>{const av=a[k]??'',bv=b[k]??'';return typeof av==='number'?(dir==='asc'?av-bv:bv-av):(dir==='asc'?String(av).localeCompare(String(bv)):String(bv).localeCompare(String(av)));});
+  renderDevices();
+}
+
+// ── UPDATES ──────────────────────────────
+function renderUpdates(arr) {
+  const d=arr||S.devices;
+  const up=d.filter(x=>x.updateStatus==='Up to Date').length,pn=d.filter(x=>x.pendingCount>0).length,cr=d.filter(x=>x.criticalCount>0).length,rr=d.filter(x=>x.updateStatus==='Restart Required').length,fl=d.filter(x=>x.updateStatus==='Failed').length;
+  document.getElementById('updKpis').innerHTML=`
+    <div class="kpi gr"><div class="kpi-lbl">Up to Date</div><div class="kpi-val">${up}</div><div class="kpi-sub">${pct(up,d.length)}%</div></div>
+    <div class="kpi am"><div class="kpi-lbl">Pending</div><div class="kpi-val">${pn}</div><div class="kpi-sub">Awaiting install</div></div>
+    <div class="kpi re"><div class="kpi-lbl">Critical</div><div class="kpi-val">${cr}</div><div class="kpi-sub">Immediate action</div></div>
+    <div class="kpi pu"><div class="kpi-lbl">Restart Req.</div><div class="kpi-val">${rr}</div><div class="kpi-sub">Pending reboot</div></div>
+    <div class="kpi re"><div class="kpi-lbl">Failed</div><div class="kpi-val">${fl}</div><div class="kpi-sub">Update failures</div></div>
+  `;
+  // By OS stacked
+  const vg={};d.forEach(x=>{const k=(x.operatingSystem||'?').split(' ')[0];if(!vg[k])vg[k]={u:0,p:0,c:0};if(x.updateStatus==='Up to Date')vg[k].u++;else if(x.criticalCount>0)vg[k].c++;else vg[k].p++;});
+  const vkeys=Object.keys(vg).slice(0,7);
+  destroyC('updOsChart');
+  S.charts['updOsChart']=new Chart(document.getElementById('updOsChart'),{type:'bar',data:{labels:vkeys,datasets:[{label:'Up to Date',data:vkeys.map(k=>vg[k].u),backgroundColor:'#22d3a0'},{label:'Pending',data:vkeys.map(k=>vg[k].p),backgroundColor:'#fbbf24'},{label:'Critical',data:vkeys.map(k=>vg[k].c),backgroundColor:'#f87171'}]},options:{...bOpts(),scales:{x:{stacked:true,...ax()},y:{stacked:true,...ax()}}}});
+  // Days dist
+  const bk={'0-7':0,'8-14':0,'15-30':0,'31-60':0,'60+':0};
+  d.forEach(x=>{const n=x.daysSinceUpdate||0;if(n<=7)bk['0-7']++;else if(n<=14)bk['8-14']++;else if(n<=30)bk['15-30']++;else if(n<=60)bk['31-60']++;else bk['60+']++;});
+  destroyC('daysChart');
+  S.charts['daysChart']=new Chart(document.getElementById('daysChart'),{type:'bar',data:{labels:Object.keys(bk),datasets:[{label:'Devices',data:Object.values(bk),backgroundColor:['#22d3a0','#3b82f6','#fbbf24','#f87171','#7f1d1d'],borderRadius:3}]},options:{...bOpts(),plugins:{...bOpts().plugins,legend:{display:false}}}});
+
+  document.getElementById('uCount').textContent=`${d.length} devices`;
+  document.getElementById('updBody').innerHTML=d.map(x=>`<tr>
+    <td class="mono" style="color:var(--blue)">${x.deviceName}</td>
+    <td style="font-size:10px;color:var(--t2)">${x.operatingSystem}</td>
+    <td><span class="badge ${UPD_CLR[x.updateStatus]||'b-gy'}">${x.updateStatus}</span></td>
+    <td class="mono" style="color:${x.pendingCount>0?'var(--amber)':'var(--t3)'}">${x.pendingCount}</td>
+    <td class="mono" style="color:${x.criticalCount>0?'var(--red)':'var(--t3)'}">${x.criticalCount||'—'}</td>
+    <td class="mono" style="font-size:10px;color:var(--t2)">${rel(x.lastSyncDateTime)}</td>
+    <td class="mono" style="color:${x.daysSinceUpdate>30?'var(--red)':x.daysSinceUpdate>14?'var(--amber)':'var(--green)'}">${x.daysSinceUpdate}d</td>
+    <td class="mono" style="font-size:10px;color:${urgent(x.deadline)?'var(--red)':'var(--t2)'}">${x.deadline||'—'}</td>
+  </tr>`).join('');
+}
+function filterUpdates(){
+  const s=document.getElementById('uSearch').value.toLowerCase(),st=document.getElementById('uStatus').value;
+  const f=S.devices.filter(d=>{if(s&&!d.deviceName.toLowerCase().includes(s))return false;if(st&&d.updateStatus!==st)return false;return true;});
+  document.getElementById('uCount').textContent=`${f.length} / ${S.devices.length}`;
+  document.getElementById('updBody').innerHTML=f.map(x=>`<tr><td class="mono" style="color:var(--blue)">${x.deviceName}</td><td style="font-size:10px;color:var(--t2)">${x.operatingSystem}</td><td><span class="badge ${UPD_CLR[x.updateStatus]||'b-gy'}">${x.updateStatus}</span></td><td class="mono" style="color:${x.pendingCount>0?'var(--amber)':'var(--t3)'}">${x.pendingCount}</td><td class="mono" style="color:${x.criticalCount>0?'var(--red)':'var(--t3)'}">${x.criticalCount||'—'}</td><td class="mono" style="font-size:10px;color:var(--t2)">${rel(x.lastSyncDateTime)}</td><td class="mono" style="color:${x.daysSinceUpdate>30?'var(--red)':x.daysSinceUpdate>14?'var(--amber)':'var(--green)'}">${x.daysSinceUpdate}d</td><td class="mono" style="font-size:10px;color:${urgent(x.deadline)?'var(--red)':'var(--t2)'}">${x.deadline||'—'}</td></tr>`).join('');
+}
+
+// ── PENDING ──────────────────────────────
+function renderPending(arr) {
+  const p=arr||S.pending;
+  const crit=p.filter(x=>x.severity==='Critical');
+  document.getElementById('critBanner').innerHTML=crit.length?`<div class="alert">🚨 <strong>${crit.length} critical update${crit.length>1?'s':''} pending</strong> — immediate deployment recommended</div>`:'';
+  const sc={};p.forEach(x=>{sc[x.severity]=(sc[x.severity]||0)+1;});
+  renderDonut('pSevChart','',Object.keys(sc),Object.values(sc),['#f87171','#fbbf24','#a78bfa','#8898b0'],false);
+  const cc={};p.forEach(x=>{cc[x.category]=(cc[x.category]||0)+1;});
+  renderDonut('pCatChart','',Object.keys(cc),Object.values(cc),['#3b82f6','#22d3a0','#fbbf24','#a78bfa','#f87171'],false);
+  document.getElementById('pCount').textContent=`${p.length} updates`;
+  document.getElementById('pendBody').innerHTML=p.map(x=>`<tr>
+    <td class="mono" style="color:var(--sky)">${x.kb}</td>
+    <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="${x.title}">${x.title}</td>
+    <td><span class="badge ${SEV_CLR[x.severity]||'b-gy'}">${x.severity}</span></td>
+    <td><span class="badge b-bl">${x.category}</span></td>
+    <td class="mono">${x.affected}</td>
+    <td class="mono" style="color:var(--t2)">${x.released}</td>
+    <td class="mono" style="color:${urgent(x.deadline)?'var(--red)':'var(--t2)'}">${x.deadline}</td>
+    <td><span class="badge ${x.deployStatus==='In Progress'?'b-bl':x.deployStatus==='Scheduled'?'b-pu':'b-am'}">${x.deployStatus}</span></td>
+  </tr>`).join('');
+}
+function filterPending(){
+  const s=document.getElementById('pSearch').value.toLowerCase(),sv=document.getElementById('pSev').value,ct=document.getElementById('pCat').value;
+  renderPending(S.pending.filter(p=>{if(s&&!`${p.kb} ${p.title}`.toLowerCase().includes(s))return false;if(sv&&p.severity!==sv)return false;if(ct&&p.category!==ct)return false;return true;}));
+}
+
+// ── COMPLIANCE ───────────────────────────
+function renderCompliance() {
+  const d=S.devices;
+  const comp=d.filter(x=>x.complianceState==='Compliant').length,nc=d.filter(x=>x.complianceState==='Non-Compliant').length,gp=d.filter(x=>x.complianceState==='In Grace Period').length,uk=d.filter(x=>x.complianceState==='Unknown').length;
+  document.getElementById('compKpis').innerHTML=`
+    <div class="kpi gr"><div class="kpi-lbl">Compliant</div><div class="kpi-val">${comp}</div><div class="kpi-sub">${pct(comp,d.length)}%</div></div>
+    <div class="kpi re"><div class="kpi-lbl">Non-Compliant</div><div class="kpi-val">${nc}</div><div class="kpi-sub">${pct(nc,d.length)}%</div></div>
+    <div class="kpi am"><div class="kpi-lbl">Grace Period</div><div class="kpi-val">${gp}</div><div class="kpi-sub">Expiring soon</div></div>
+    <div class="kpi sk"><div class="kpi-lbl">Unknown</div><div class="kpi-val">${uk}</div><div class="kpi-sub">No data</div></div>
+  `;
+  const dc={};d.forEach(x=>{if(!dc[x.department])dc[x.department]={c:0,t:0};dc[x.department].t++;if(x.complianceState==='Compliant')dc[x.department].c++;});
+  const dl=Object.keys(dc),dp=dl.map(k=>Math.round(dc[k].c/dc[k].t*100));
+  destroyC('deptChart');
+  S.charts['deptChart']=new Chart(document.getElementById('deptChart'),{type:'bar',data:{labels:dl,datasets:[{label:'Compliance %',data:dp,backgroundColor:dp.map(v=>v>=90?'#22d3a0':v>=70?'#fbbf24':'#f87171'),borderRadius:3}]},options:{...bOpts(),plugins:{...bOpts().plugins,legend:{display:false}},scales:{x:ax(),y:{...ax(),min:0,max:100,ticks:{...ax().ticks,callback:v=>v+'%'}}}}});
+  const tl=Array.from({length:12},(_,i)=>{const dt=new Date();dt.setDate(dt.getDate()-i*2.5);return dt.toLocaleDateString('en',{month:'short',day:'numeric'});}).reverse();
+  const td=tl.map((_,i)=>Math.min(100,60+i*3+rnd(-2,2)));
+  destroyC('compTrend');
+  S.charts['compTrend']=new Chart(document.getElementById('compTrend'),{type:'line',data:{labels:tl,datasets:[{label:'Compliance %',data:td,borderColor:'#22d3a0',backgroundColor:'rgba(34,211,160,.08)',fill:true,tension:.4,pointRadius:2}]},options:{...lOpts()}});
+  const POLICIES=['BitLocker Not Enabled','Antivirus Out of Date','OS Version Below Minimum','Firewall Disabled','Password Policy Not Met','Encryption Required'];
+  document.getElementById('ncBody').innerHTML=d.filter(x=>x.complianceState!=='Compliant').map(x=>`<tr>
+    <td class="mono" style="color:var(--blue);cursor:pointer" onclick="showDev('${x.id}')">${x.deviceName}</td>
+    <td style="color:var(--t2);font-size:11px">${x.userPrincipalName}</td>
+    <td>${x.operatingSystem}</td>
+    <td><span class="badge ${CMP_CLR[x.complianceState]||'b-gy'}">${x.complianceState}</span></td>
+    <td style="color:var(--t2);font-size:11px">${POLICIES[Math.floor(Math.random()*POLICIES.length)]}</td>
+    <td class="mono" style="color:var(--amber);font-size:10px">${daysFromNow(rnd(1,14))}</td>
+    <td><span class="badge ${x.complianceState==='Non-Compliant'?'b-re':'b-am'}">${x.complianceState==='Non-Compliant'?'HIGH':'MEDIUM'}</span></td>
+  </tr>`).join('');
+}
+
+// ── CHARTS ───────────────────────────────
+Chart.defaults.color='#8898b0';Chart.defaults.borderColor='#1c2535';
+function ax(){return{grid:{color:'#1c2535'},ticks:{color:'#8898b0',font:{family:'JetBrains Mono',size:10}}};}
+function bOpts(){return{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8898b0',font:{family:'Sora',size:11},boxWidth:10,padding:10}},tooltip:{backgroundColor:'#0c1018',borderColor:'#263040',borderWidth:1,titleFont:{family:'JetBrains Mono',size:11},bodyFont:{family:'JetBrains Mono',size:11}}},scales:{x:ax(),y:ax()}};}
+function lOpts(){return{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8898b0',font:{family:'Sora',size:11},boxWidth:10}},tooltip:{backgroundColor:'#0c1018',borderColor:'#263040',borderWidth:1}},scales:{x:ax(),y:ax()}};}
+function renderDonut(cid,lid,labels,data,colors,leg=true){
+  destroyC(cid);
+  S.charts[cid]=new Chart(document.getElementById(cid),{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors,borderColor:'#111620',borderWidth:2}]},options:{cutout:'68%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed}`}}},animation:{duration:500}}});
+  if(leg&&lid){const t=data.reduce((s,v)=>s+v,0);document.getElementById(lid).innerHTML=labels.map((l,i)=>`<div class="leg-item"><div class="leg-dot" style="background:${colors[i]}"></div><div class="leg-lbl">${l}</div><div class="leg-val">${data[i]}</div><div class="leg-pct">${pct(data[i],t)}%</div></div>`).join('');}
+}
+function renderTrend(){
+  const lb=Array.from({length:30},(_,i)=>{const dt=new Date();dt.setDate(dt.getDate()-(29-i));return dt.toLocaleDateString('en',{month:'short',day:'numeric'});});
+  destroyC('trendChart');
+  S.charts['trendChart']=new Chart(document.getElementById('trendChart'),{type:'line',data:{labels:lb,datasets:[{label:'Installed',data:lb.map(()=>rnd(0,8)),borderColor:'#22d3a0',backgroundColor:'rgba(34,211,160,.07)',fill:true,tension:.4,pointRadius:0},{label:'Failed',data:lb.map(()=>rnd(0,2)),borderColor:'#f87171',backgroundColor:'rgba(248,113,113,.05)',fill:true,tension:.4,pointRadius:0},{label:'Pending',data:lb.map(()=>rnd(3,18)),borderColor:'#fbbf24',backgroundColor:'rgba(251,191,36,.05)',fill:true,tension:.4,pointRadius:0}]},options:lOpts()});
+}
+function destroyC(id){if(S.charts[id]){S.charts[id].destroy();delete S.charts[id];}}
+
+// ── MODAL ─────────────────────────────────
+function showDev(id){
+  const d=S.devices.find(x=>x.id===id);if(!d)return;
+  document.getElementById('modTitle').textContent=d.deviceName;
+  document.getElementById('modBody').innerHTML=`
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+      <span class="badge ${CMP_CLR[d.complianceState]||'b-gy'}">${d.complianceState}</span>
+      <span class="badge ${UPD_CLR[d.updateStatus]||'b-gy'}">${d.updateStatus}</span>
+      ${d.pendingCount>0?`<span class="badge b-am">${d.pendingCount} Pending</span>`:''}
+      ${d.criticalCount>0?`<span class="badge b-re">${d.criticalCount} Critical</span>`:''}
+    </div>
+    ${dr('Device Name',d.deviceName)}${dr('User',d.userPrincipalName)}${dr('OS',d.operatingSystem)}
+    ${dr('Version',d.osVersion)}${dr('Manufacturer',d.manufacturer)}${dr('Model',d.model)}
+    ${dr('Serial',d.serialNumber)}${dr('Department',d.department)}${dr('Owner Type',d.managedDeviceOwnerType)}
+    ${dr('Azure AD ID',d.azureADDeviceId)}${dr('Last Sync',rel(d.lastSyncDateTime))}
+    ${dr('Enrolled',rel(d.enrolledDateTime))}${dr('Pending Updates',String(d.pendingCount))}
+    ${dr('Critical Updates',String(d.criticalCount))}${dr('Days Since Update',d.daysSinceUpdate+'d')}
+    ${d.deadline?dr('Patch Deadline',d.deadline):''}
+  `;
+  document.getElementById('devModal').classList.add('open');
+}
+function dr(k,v){return `<div class="drow"><div class="dkey">${k}</div><div class="dval">${v||'—'}</div></div>`;}
+function closeModal(){document.getElementById('devModal').classList.remove('open');}
+document.getElementById('devModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+
+// ── TABS ─────────────────────────────────
+function switchTab(el,name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('view-'+name).classList.add('active');
+}
+
+// ── HELPERS ──────────────────────────────
+function pct(a,b){return b?Math.round(a/b*100):0;}
+function rel(iso){if(!iso)return'—';const s=(Date.now()-new Date(iso))/1000;if(s<60)return'Just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
+function urgent(ds){if(!ds)return false;return(new Date(ds)-Date.now())/86400000<7;}
+function sbar(l,n,t,c){return `<div class="sbar"><div class="sbar-lbl">${l}</div><div class="sbar-t"><div class="sbar-f" style="width:${pct(n,t)}%;background:${c}"></div></div><div class="sbar-n" style="color:${c}">${n}</div></div>`;}
+function setLoading(on){document.getElementById('loadingBar').style.display=on?'block':'none';}
+function setSyncTime(){document.getElementById('syncLabel').textContent='Synced '+new Date().toLocaleTimeString();}
+function showSetupErr(m){const e=document.getElementById('setupErr');e.textContent=m;e.style.display='block';}
+
+// ── EXPORT ────────────────────────────────
+function exportCSV(){
+  const h=['Device','User','OS','Version','Compliance','Update Status','Pending','Critical','Last Sync','Days Since Update'];
+  const r=S.devices.map(d=>[d.deviceName,d.userPrincipalName,d.operatingSystem,d.osVersion,d.complianceState,d.updateStatus,d.pendingCount,d.criticalCount,d.lastSyncDateTime,d.daysSinceUpdate]);
+  dlCSV('intune-devices.csv',h,r);
+}
+function exportPendingCSV(){
+  const h=['KB','Title','Severity','Category','Affected','Released','Deadline','Status'];
+  dlCSV('intune-pending.csv',h,S.pending.map(p=>[p.kb,p.title,p.severity,p.category,p.affected,p.released,p.deadline,p.deployStatus]));
+}
+function dlCSV(name,h,r){
+  const csv=[h,...r].map(row=>row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=name;a.click();
+}
+
+// ── AUTO-RESTORE SAVED IDS ────────────────
+window.addEventListener('load',()=>{
+  const cid=localStorage.getItem('ituneClientId'),tid=localStorage.getItem('ituneTenantId');
+  if(cid)document.getElementById('clientId').value=cid;
+  if(tid)document.getElementById('tenantId').value=tid;
+});
+</script>
+</body>
+</html>
